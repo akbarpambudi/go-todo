@@ -1,6 +1,6 @@
-ENTRY_POINT = ./app/cmd
-BUILD_TARGET_DIR = ./dst/bin
-APP_NAME = godig-practice
+ENTRY_POINT = ./cmd
+BUILD_TARGET_DIR = ./build/bin
+APP_NAME = todo
 .PHONY=build
 build:
 	go build -o ${BUILD_TARGET_DIR}/${APP_NAME} ${ENTRY_POINT}/*.go

@@ -6,13 +6,10 @@ FROM golang:latest
 # Add Maintainer Info
 LABEL maintainer="Akbar Pambudi <akbar.pambudi@amarbank.co.id>"
 
-# Set the Current Working Directory inside the container
 WORKDIR /app
 
-COPY ./dst/bin ./dst/bin
+COPY ./build/bin ./build/bin
 
-# This container exposes port 8080 to the outside world
 EXPOSE 8080
 
-# Run the binary program produced by `go install`
-CMD ["./dst/bin/godig-practice"]
+CMD ["./buld/bin/todo"]
