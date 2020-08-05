@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -37,94 +36,6 @@ type TodoRevision struct {
 	Description string
 }
 
-type TodoState struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	CreatedAt   time.Time  `json:"created_at"`
-	Status      TodoStatus `json:"status"`
-}
-
-type TodoEvent interface {
-	GetState() TodoState
-	GetID() string
-	GetEventName() string
-	BindFromJson([]byte) error
-	ToJson() ([]byte, error)
-}
-
-type TodoCreated struct {
-	state TodoState
-}
-
-func (event TodoCreated) GetState() TodoState {
-	return event.state
-}
-
-func (event TodoCreated) GetID() string {
-	return event.state.ID
-}
-
-func (event TodoCreated) GetEventName() string {
-	return "todo.event.todo-created"
-}
-
-func (event *TodoCreated) BindFromJson(eventInJson []byte) error {
-	return json.Unmarshal(eventInJson, event)
-}
-
-func (event *TodoCreated) ToJson() ([]byte, error) {
-	return json.Marshal(event)
-}
-
-type TodoRevised struct {
-	state TodoState
-}
-
-func (event TodoRevised) GetState() TodoState {
-	return event.state
-}
-
-func (event TodoRevised) GetID() string {
-	return event.state.ID
-}
-
-func (event TodoRevised) GetEventName() string {
-	return "todo.event.todo-revised"
-}
-
-func (event *TodoRevised) BindFromJson(eventInJson []byte) error {
-	return json.Unmarshal(eventInJson, event)
-}
-
-func (event *TodoRevised) ToJson() ([]byte, error) {
-	return json.Marshal(event)
-}
-
-type TodoMoved struct {
-	state TodoState
-}
-
-func (event TodoMoved) GetState() TodoState {
-	return event.state
-}
-
-func (event TodoMoved) GetID() string {
-	return event.state.ID
-}
-
-func (event TodoMoved) GetEventName() string {
-	return "todo.event.todo-moved"
-}
-
-func (event *TodoMoved) BindFromJson(eventInJson []byte) error {
-	return json.Unmarshal(eventInJson, event)
-}
-
-func (event *TodoMoved) ToJson() ([]byte, error) {
-	return json.Marshal(event)
-}
-
 type TodoAggregate interface {
 	GetID() string
 	GetTitle() string
@@ -132,7 +43,7 @@ type TodoAggregate interface {
 	GetCreatedAt() time.Time
 	GetStatus() TodoStatus
 	addEvent(event TodoEvent)
-	GetUnCommittedEvents() []TodoEvent
+	GetUnCommittedEvents() TodoEvents
 	CommitEvents()
 	MoveToInProgress()
 	MoveToDone()
@@ -145,20 +56,18 @@ type Todo struct {
 	description    string
 	createdAt      time.Time
 	status         TodoStatus
-	unCommitEvents []TodoEvent
+	unCommitEvents TodoEvents
 }
 
 func NewTodo(id string, title string, description string) *Todo {
 	todo := new(Todo)
-	todo.addEvent(&TodoCreated{
-		state: TodoState{
-			ID:          id,
-			Title:       title,
-			Description: description,
-			CreatedAt:   time.Now(),
-			Status:      TodoStatusNew,
-		},
-	})
+	todo.addEvent(NewTodoCreatedEvent(TodoState{
+		ID:          id,
+		Title:       title,
+		Description: description,
+		CreatedAt:   time.Now(),
+		Status:      TodoStatusNew,
+	}))
 	return todo
 }
 
@@ -166,24 +75,18 @@ func (todo *Todo) MoveToInProgress() {
 	if !todo.status.IsNew() {
 		return
 	}
-	todo.addEvent(&TodoMoved{
-		state: TodoState{
-			ID:     todo.id,
-			Status: TodoStatusInProgress,
-		},
-	})
+	todo.addEvent(NewTodoMovedEvent(TodoState{ID: todo.id, Status: TodoStatusInProgress}))
 }
 
 func (todo *Todo) MoveToDone() {
 	if !todo.status.IsInProgress() {
 		return
 	}
-	todo.addEvent(&TodoMoved{
-		state: TodoState{
+	todo.addEvent(NewTodoMovedEvent(
+		TodoState{
 			ID:     todo.id,
 			Status: TodoStatusDone,
-		},
-	})
+		}))
 }
 
 func (todo *Todo) Revise(revision TodoRevision) {
@@ -199,9 +102,7 @@ func (todo *Todo) Revise(revision TodoRevision) {
 		return
 	}
 	state.ID = todo.id
-	todo.addEvent(&TodoRevised{
-		state: state,
-	})
+	todo.addEvent(NewTodoRevisedEvent(state))
 }
 
 func (todo Todo) GetTitle() string {
@@ -230,10 +131,10 @@ func (todo *Todo) addEvent(event TodoEvent) {
 }
 
 func (todo *Todo) CommitEvents() {
-	todo.unCommitEvents = []TodoEvent{}
+	todo.unCommitEvents = TodoEvents{}
 }
 
-func (todo *Todo) GetUnCommittedEvents() []TodoEvent {
+func (todo *Todo) GetUnCommittedEvents() TodoEvents {
 	return todo.unCommitEvents
 }
 
